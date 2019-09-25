@@ -62,9 +62,8 @@ auto draw(Renderer &renderer, WeightedGrid &grid, Location &start) -> void {
         SDL_RenderFillRect(renderer.get(), &rect);
     }
 
-    auto goal  = Location{gridX, gridY};
-    auto astar = AStar{};
-    auto path  = astar.findPath(grid, start, goal);
+    auto goal = Location{gridX, gridY};
+    auto path = AStar{}.findPath(grid, start, goal);
 
     // Draw path
     SDL_SetRenderDrawColor(renderer.get(), 186, 86, 75, 255);
