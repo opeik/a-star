@@ -52,7 +52,8 @@ auto Grid::neighbors(Location id) const -> vector<Location> {
     return results;
 }
 
-auto WeightedGrid::cost(Location from, Location to) const -> double {
+auto WeightedGrid::cost([[maybe_unused]] Location from, Location to) const
+    -> double {
     return forests.find(to) != forests.end() ? 5 : 1;
 }
 

@@ -20,7 +20,6 @@ using std::vector;
 using namespace Pathing;
 
 constexpr auto SIZE    = 25;
-constexpr auto BORDER  = 1;
 constexpr auto START_X = 10;
 constexpr auto START_Y = 10;
 
