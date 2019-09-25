@@ -114,6 +114,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char **argv) {
 
     while (isRunning) {
         auto event = SDL_Event{};
+
         if (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 isRunning = false;
