@@ -17,12 +17,14 @@ using std::unique_ptr;
 using std::unordered_map;
 using std::vector;
 
+using namespace Pathing;
+
 constexpr auto SIZE    = 25;
 constexpr auto BORDER  = 1;
 constexpr auto START_X = 10;
 constexpr auto START_Y = 10;
 
-auto draw(Renderer &renderer, GridWithWeights &grid, GridLocation &start) -> void {
+auto draw(Renderer &renderer, WeightedGrid &grid, Location &start) -> void {
     auto mouseX = 0;
     auto mouseY = 0;
     SDL_GetMouseState(&mouseX, &mouseY);
@@ -33,12 +35,12 @@ auto draw(Renderer &renderer, GridWithWeights &grid, GridLocation &start) -> voi
     auto gridY = std::clamp(((mouseY + START_Y) / SIZE) - 1, 0, grid.height - 1);
 
     if (keys[SDL_SCANCODE_SPACE]) {
-        start = GridLocation{gridX, gridY};
+        start = Location{gridX, gridY};
     }
 
     // Add walls
     if (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-        grid.walls.insert(GridLocation{gridX, gridY});
+        grid.walls.insert(Location{gridX, gridY});
     }
 
     // Remove walls
@@ -60,12 +62,9 @@ auto draw(Renderer &renderer, GridWithWeights &grid, GridLocation &start) -> voi
         SDL_RenderFillRect(renderer.get(), &rect);
     }
 
-    auto goal        = GridLocation{gridX, gridY};
-    auto came_from   = unordered_map<GridLocation, GridLocation>{};
-    auto cost_so_far = unordered_map<GridLocation, double>{};
-
-    a_star_search(grid, start, goal, came_from, cost_so_far);
-    auto path = reconstruct_path(start, goal, came_from);
+    auto goal  = Location{gridX, gridY};
+    auto astar = AStar{};
+    auto path  = astar.findPath(grid, start, goal);
 
     // Draw path
     SDL_SetRenderDrawColor(renderer.get(), 186, 86, 75, 255);
@@ -90,8 +89,8 @@ auto draw(Renderer &renderer, GridWithWeights &grid, GridLocation &start) -> voi
 int main([[maybe_unused]] int argc, [[maybe_unused]] char **argv) {
     auto isRunning = true;
 
-    auto grid  = GridWithWeights{25, 25};
-    auto start = GridLocation{0, 0};
+    auto grid  = WeightedGrid{25, 25};
+    auto start = Location{0, 0};
 
     // Start SDL.
     auto status = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);

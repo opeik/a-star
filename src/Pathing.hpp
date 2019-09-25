@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <array>
 #include <cstdlib>
-#include <iomanip>
-#include <iostream>
 #include <queue>
 #include <tuple>
 #include <unordered_map>
@@ -12,180 +10,88 @@
 #include <utility>
 #include <vector>
 
-struct SimpleGraph {
-    std::unordered_map<char, std::vector<char>> edges;
+namespace Pathing {
+    struct Location {
+        int x = 0;
+        int y = 0;
 
-    std::vector<char> neighbors(char id) {
-        return edges[id];
-    }
-};
-
-struct GridLocation {
-    int x, y;
-};
+        auto operator==(const Location &) const -> bool;
+        auto operator!=(const Location &) const -> bool;
+        auto operator<(const Location &) const -> bool;
+    };
+}
 
 namespace std {
-    /* implement hash function so we can put GridLocation into an unordered_set */
     template<>
-    struct hash<GridLocation> {
-        typedef GridLocation argument_type;
-        typedef std::size_t result_type;
-        std::size_t operator()(const GridLocation &id) const noexcept {
-            return std::hash<int>()(id.x ^ (id.y << 4));
+    struct hash<Pathing::Location> {
+
+        auto operator()(const Pathing::Location &e) const noexcept -> std::size_t {
+            using std::hash;
+
+            return std::hash<int>()(e.x ^ (e.y << 4));
         }
     };
 }
 
-struct SquareGrid {
-    static std::array<GridLocation, 4> DIRS;
+namespace Pathing {
+    struct Grid {
+        static constexpr std::array<Location, 4> DIRS = {
+            Location{1, 0}, Location{0, -1}, Location{-1, 0}, Location{0, 1}};
 
-    int width, height;
-    std::unordered_set<GridLocation> walls;
+        int width  = 15;
+        int height = 15;
 
-    SquareGrid(int width_, int height_) : width(width_), height(height_) {}
+        std::unordered_set<Location> walls = {};
 
-    bool in_bounds(GridLocation id) const {
-        return 0 <= id.x && id.x < width && 0 <= id.y && id.y < height;
-    }
+        Grid(int width_, int height_) : width(width_), height(height_) {}
 
-    bool passable(GridLocation id) const {
-        return walls.find(id) == walls.end();
-    }
+        auto inBounds(Location id) const -> bool;
+        auto passable(Location id) const -> bool;
+        auto neighbors(Location id) const -> std::vector<Location>;
+        auto addWall(int x1, int y1, int x2, int y2) -> void;
+    };
 
-    std::vector<GridLocation> neighbors(GridLocation id) const {
-        std::vector<GridLocation> results;
+    struct WeightedGrid : Grid {
+        std::unordered_set<Location> forests = {};
 
-        for (GridLocation dir : DIRS) {
-            GridLocation next{id.x + dir.x, id.y + dir.y};
-            if (in_bounds(next) && passable(next)) {
-                results.push_back(next);
-            }
+        WeightedGrid(int _width, int _height) : Grid(_width, _height) {}
+
+        auto cost(Location from, Location to) const -> double;
+    };
+
+    template<typename T, typename Priority>
+    struct ReversePriorityQueue {
+        using Element = std::pair<Priority, T>;
+
+        std::priority_queue<Element, std::vector<Element>, std::greater<Element>>
+            elements = {};
+
+        auto empty() const -> bool {
+            return elements.empty();
         }
 
-        if ((id.x + id.y) % 2 == 0) {
-            // aesthetic improvement on square grids
-            std::reverse(results.begin(), results.end());
+        auto put(T item, Priority priority) -> void {
+            elements.emplace(priority, item);
         }
 
-        return results;
-    }
-};
+        auto get() -> T {
+            auto bestItem = elements.top().second;
+            elements.pop();
 
-struct GridWithWeights : SquareGrid {
-    std::unordered_set<GridLocation> forests;
-    GridWithWeights(int w, int h) : SquareGrid(w, h) {}
-    double cost(GridLocation from_node, GridLocation to_node) const {
-        return forests.find(to_node) != forests.end() ? 5 : 1;
-    }
-};
+            return bestItem;
+        }
+    };
 
-template<typename T, typename priority_t>
-struct PriorityQueue {
-    typedef std::pair<priority_t, T> PQElement;
-    std::priority_queue<PQElement, std::vector<PQElement>, std::greater<PQElement>> elements;
+    struct AStar {
+        std::unordered_map<Location, Location> cameFrom = {};
+        std::unordered_map<Location, double> costSoFar  = {};
 
-    inline bool empty() const {
-        return elements.empty();
-    }
+        auto findPath(const WeightedGrid &grid, Location start, Location end)
+            -> std::vector<Location>;
 
-    inline void put(T item, priority_t priority) {
-        elements.emplace(priority, item);
-    }
-
-    T get() {
-        T best_item = elements.top().second;
-        elements.pop();
-        return best_item;
-    }
-};
-
-bool operator==(GridLocation a, GridLocation b);
-bool operator!=(GridLocation a, GridLocation b);
-bool operator<(GridLocation a, GridLocation b);
-std::ostream &operator<<(std::ostream &out, const GridLocation &loc);
-
-GridWithWeights make_diagram4();
-
-template<typename Location>
-std::vector<Location> reconstruct_path(Location start, Location goal,
-    std::unordered_map<Location, Location> came_from) {
-    std::vector<Location> path;
-    Location current = goal;
-    while (current != start) {
-        path.push_back(current);
-        current = came_from[current];
-    }
-    path.push_back(start); // optional
-    std::reverse(path.begin(), path.end());
-    return path;
+      private:
+        auto reconstructPath(Location start, Location goal)
+            -> std::vector<Location>;
+        auto heuristic(Location a, Location b) -> double;
+    };
 }
-
-template<class Graph>
-void draw_grid(const Graph &graph, int field_width,
-    std::unordered_map<GridLocation, double> *distances      = nullptr,
-    std::unordered_map<GridLocation, GridLocation> *point_to = nullptr,
-    std::vector<GridLocation> *path                          = nullptr) {
-    for (int y = 0; y != graph.height; ++y) {
-        for (int x = 0; x != graph.width; ++x) {
-            GridLocation id{x, y};
-            std::cout << std::left << std::setw(field_width);
-            if (graph.walls.find(id) != graph.walls.end()) {
-                std::cout << std::string(field_width, '#');
-            } else if (point_to != nullptr && point_to->count(id)) {
-                GridLocation next = (*point_to)[id];
-                if (next.x == x + 1) {
-                    std::cout << "> ";
-                } else if (next.x == x - 1) {
-                    std::cout << "< ";
-                } else if (next.y == y + 1) {
-                    std::cout << "v ";
-                } else if (next.y == y - 1) {
-                    std::cout << "^ ";
-                } else {
-                    std::cout << "* ";
-                }
-            } else if (distances != nullptr && distances->count(id)) {
-                std::cout << (*distances)[id];
-            } else if (path != nullptr &&
-                       find(path->begin(), path->end(), id) != path->end()) {
-                std::cout << '@';
-            } else {
-                std::cout << '.';
-            }
-        }
-        std::cout << '\n';
-    }
-}
-
-template<typename Location, typename Graph>
-void a_star_search(Graph graph, Location start, Location goal,
-    std::unordered_map<Location, Location> &came_from,
-    std::unordered_map<Location, double> &cost_so_far) {
-    PriorityQueue<Location, double> frontier;
-    frontier.put(start, 0);
-
-    came_from[start]   = start;
-    cost_so_far[start] = 0;
-
-    while (!frontier.empty()) {
-        Location current = frontier.get();
-
-        if (current == goal) {
-            break;
-        }
-
-        for (Location next : graph.neighbors(current)) {
-            double new_cost = cost_so_far[current] + graph.cost(current, next);
-            if (cost_so_far.find(next) == cost_so_far.end() ||
-                new_cost < cost_so_far[next]) {
-                cost_so_far[next] = new_cost;
-                double priority   = new_cost + heuristic(next, goal);
-                frontier.put(next, priority);
-                came_from[next] = current;
-            }
-        }
-    }
-}
-
-double heuristic(GridLocation a, GridLocation b);
-void add_wall(SquareGrid &grid, int x1, int y1, int x2, int y2);
