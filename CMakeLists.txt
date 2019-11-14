@@ -51,11 +51,13 @@ target_compile_options(${PROJECT_NAME} PUBLIC $<$<CXX_COMPILER_ID:GNU>:
 # Set MSVC compile flags.
 target_compile_options(${PROJECT_NAME} PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/W4>)
 
-# Enable Clang's address and memory sanitizers.
+# Enable Clang's sanitizers.
 target_compile_options(${PROJECT_NAME} PUBLIC
-    $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:Clang>>:-fsanitize=address,undefined,leak>)
+    $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:Clang,AppleClang>,$<PLATFORM_ID:Linux,Darwin>>:
+    -fsanitize=address,undefined,leak>)
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:Clang>>:-fsanitize=address,undefined,leak>)
+    $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:Clang,AppleClang>,$<PLATFORM_ID:Linux,Darwin>>:
+    -fsanitize=address,undefined,leak>)
 
 # Treat warnings as errors if enabled.
 if (WarningsAsErrors)
